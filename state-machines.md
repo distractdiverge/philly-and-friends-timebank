@@ -156,15 +156,37 @@ Ledger is append-only; state machine applies to **the lifecycle of a transaction
 3. Balance calculation:
    - `balance(user) = Σ(incoming hours) - Σ(outgoing hours)` across **all** transactions including reversals/adjustments.
 
-### 2.5 Negative Balances Policy Hook
-This is a configurable business rule, not a state:
-- **Option A:** no negative balances allowed (requires pre-check before acceptance or before completion)
-- **Option B:** allow negative balances up to a limit (credit line)
-- **Option C:** allow negative balances freely (not recommended)
+### 2.5 Negative Balance Policy
 
-If Option A/B is used, enforce at:
-- `accept` (A3 gate) and/or
-- `post_transaction` (T1 → T2 gate)
+**Decision:** Negative balances are **allowed** with configurable soft limits.
+
+#### Effective minimum balance resolution
+The floor for a user's balance is resolved in priority order (most specific wins):
+
+1. **User override** — `user.min_balance_override` (nullable float); set by admin/moderator on a per-user basis
+2. **Group override** — per community group/pod (phase 2; not in MVP data model)
+3. **System default** — `config.system_min_balance`; initial value **-1.0 hours**, adjustable up to **-2.0 hours** at launch; stored in server configuration (not per-row)
+
+```
+effective_min(user) = user.min_balance_override
+                      ?? group.min_balance_override   (phase 2)
+                      ?? config.system_min_balance
+```
+
+#### Enforcement points
+Checked at **two gates**; both must pass:
+
+| Gate | Event | Check | On failure |
+|---|---|---|---|
+| A3 accept | `accept` | `balance(requester) - proposed_hours >= effective_min(requester)` | Reject acceptance; notify both parties |
+| T1 → T2 | `post_transaction` | Same check with `final_hours` | Block posting; open dispute or return to A6 |
+
+The T1 → T2 check is the authoritative enforcement point. The A3 check is best-effort (hours may change during work).
+
+#### Admin operations
+- Admin/moderator may set or clear `user.min_balance_override` at any time.
+- Every change to `min_balance_override` is logged as a **ModerationAction** (`action_type = balance_limit_change`) with rationale.
+- "Soft" means the limit is enforced at transaction time — not a hard database constraint — so the value can be adjusted without schema changes.
 
 ---
 

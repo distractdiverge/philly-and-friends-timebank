@@ -218,7 +218,7 @@ A key differentiator: a **trust / rating system that resists abuse** and support
 
 ### 8.1 Entities
 - **User**
-  - id, contact, status, created_at
+  - id, contact, status, created_at, min_balance_override (nullable float — overrides system default when set)
 - **Profile**
   - user_id, display_name, pronouns(optional), bio, county, neighborhoods/ZIPs, remote_pref
 - **Listing**
@@ -239,6 +239,7 @@ A key differentiator: a **trust / rating system that resists abuse** and support
 ### 8.2 Ledger Invariants
 - No deletion of transactions; only reversal transactions with references.
 - Balance is derived from sum of transactions (or cached with reconciliation).
+- Balance may go negative, subject to each user's effective minimum balance (see Section 2.5 of state-machines.md). Enforcement occurs at agreement acceptance and transaction posting.
 
 ---
 
@@ -401,7 +402,7 @@ Avoid showing raw negative comments prominently.
 
 ## 16) Open Questions (Track in Issues)
 
-1. Should we allow negative balances (credit lines) or require non-negative?
+1. ~~Should we allow negative balances (credit lines) or require non-negative?~~ **Resolved:** Negative balances allowed with soft limits. System default: -1.0 hours (adjustable to -2.0 at launch). Overridable per user by admin. Group-level overrides deferred to phase 2. See state-machines.md Section 2.5.
 2. Should “out-of-pocket costs” be tracked as a separate field in agreements?
 3. How strict should category restrictions be for rides / childcare / home entry tasks?
 4. Governance model: who are initial moderators? How are they rotated/selected?
